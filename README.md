@@ -77,7 +77,7 @@ Update에서 계속 if(isSwapPressed) 이런식으로 호출하는건 비효율�
 
 Unity Dots는 Systembase가 아닌 이상 대부분 BurstCompile를 사용합니다.
 class이 아닌 struct에서 ISystem을 상속받아 사용하죠.
-그렇기 때문에 UnityEngine에서 제공하는 Debug 기능을 못씁니다. 에디터에서는 일부 쓸 수 있습니다. 하지만 Job이 돌아갈때에는 사용이 안돼죠. (콘솔에서 에러 경고 뜹니다.)
+그렇기 때문에 UnityEngine에서 제공하는 Debug 기능을 쓰면 경고 디버그가 출력됩니다. Job System을 통해 Debug를 사용하면 아예 출력조차 되지 않습니다.
 처음에는 이 오류때문에 JobSystem을 사용하는 부분에서는 디버깅이 많이 어려웠습니다.
 저는 이 문제를 해결 할 방법을 찾다가 생각해낸게 그럼 Debug용 System을 만들면 되지 않을까? 입니다.
 DebugSystem을 만들어 SystemBase를 상속받아 UnityEngine에서 제공하는 Debug를 호출할 수 있게 해두었고
