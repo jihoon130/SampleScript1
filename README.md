@@ -39,7 +39,55 @@ Dots는 SubScene에서 생명주기가 돌아가며 Unity의 대부분 컴퍼넌
 
 그래서 어디까지 Hybrid로 사용해야하냐? 라는 의문점이 들었고 저는 애니메이터를 Dots, World에서 모두 실행시켜보았습니다.
 Dots에서는 상태에 따라 애니메이터의 파라미터를 변경시켰으며, World에서는 PlayerPresenter를 생성하여 Model의 리액티브프로퍼티를 통하여 플레이어가 무기를 스왑할때의 애니메이션을 실행시켰습니다.
-사용 후 내린 결론은 단일 객체의 일부 시스템은 모노비헤이비어에서은 빈 프로젝트에 에셋만 동일하게 하였습니다. 
+사용 후 내린 결론은 단일 객체의 일부 시스템은 모노비헤이비어에서 처리하는게 좋다고 느꼈습니다.
+
+예를들어
+Update에서 계속 if(isSwapPressed) 이런식으로 호출하는건 비효율적이라고 생각합니다.
+제가 사용한 방식과 같이 Dots에서 isPressed처리 -> Model에서 UniRx를 통한 옵저버 패턴 이용 -> 모노비헤이비어에서 처리
+퍼포먼스는 단일 객체이기때문에 상관없었고 모노비헤이비어에서 처리하기때문에 코드 가독성이나 컴포넌트 사용의 유연함을 증가시켰습니다.
+하지만 예외 상황도 있습니다. 예를들어 스왑하는중간에는 발사 금지 -> 이 상황일때에는 PlayerSystem에서 Input을 받기 때문에 Dots의 Component에 직접적으로 접근하여 Flag를 만들어줘야하는 상황이여서
+모두 Dots에서 처리하는게 좋을수도있습니다.
+
+### [적 이동]
+
+적 이동을 구현하기까지 총 3가지의 방식을 썻습니다.
+
+1. NavMeshAgent
+   HybridData를 이용하여 world에 있는 프리팹의 NavMeshAgent 컴퍼넌트에 직접 setdestination하는 방법입니다. 가장 쉽고 Unity다운 개발 방식이긴 하지만
+   저는 상태머신으로 캐릭터 MoveState에서 SubScene의 MoveVector의 값으로 Dots의 캐릭터유틸리티를 이용한 Move&Rotate를 처리했습니다.
+   사실 이 방법이 아니여도 NavMeshAgent에 setdestination하는 방법을 사용한다면 모든 처리를 world에 있는 프리팹에게 맡겨야합니다.
+   원래 방식은 SubScene의 Player Position -> World의 Player Position이였지만 이 방식을 사용한다면 World의 Player Position -> SubScene의 Player Position으로 동기화를 해야합니다.
+   NavMeshAgent는 Class기반으로 Hybrid에서는 처리가 가능하지만 BurstCompile을 사용하는 부분에서 참조가 어렵고 Struct를 대부분 사용하는 Dots와는 개발 방식이 맞지 않다고 생각했습니다.
+
+2. NavMeshPath를 직접 도출
+   직접 Dots 소스내에서 Player, Enemy 간의 NavMeshPath를 직접 구해 MoveVector를 구하고 CharacterComponent에 지정해주는 방식입니다.
+   단순히 손쉽게 유니티 Navigation 라이브러리를 사용할 수 있고 단순히 MoveVector를 구해서 MoveState를 Update하는거이기때문에
+   여러가지 상황에서 상태 전환이 쉬웠습니다. 하지만 직선 집중 현상(적이 한점으로 모이는 현상)이 발생했고 이를 보완하기 위한 처리가 필요했습니다.
+   이를 처리하기 위해 Obstacle 컴퍼넌트를 사용하여 재탐색을 하게도 해보았고 직접 적끼리 충돌시 랜덤으로 왼쪽 오른쪽으로 돌아 플레이어에 접근하는 식으로 Avoid 시스템을 개발해보았지만 해결은 됐었는데 제 마음에 드는 성과는없었습니다.
+   또한 NavMeshPath의 결과에서 corners 프로퍼티를 get하면 GC가 발생한다는것을 인지하였고 이로인해 프레임드랍이 꽤 심했습니다.
+
+   구글에 찾아보니 Unity에서는 이 문제를 해결하기위해 NavMeshQuery를 만들었지만 어째서인지 Obsolete가 되었습니다.
+   아마 Unity측에서도 이 문제를 알고 있을거같고 향후에 최적화된 서비스를 제공할거 같습니다.
+
+4. A* Pathfinding
+   바닥에 깔린 Ground 오브젝트를 기반으로 Grid를 생성 -> 플레이어, 에너미까지의 Path를 정해 MoveVector로 변환 방식으로 구현했습니다.
+   작동은 위 2번과 동일하였다고 생각합니다. 아직 그럴싸한 Dots용 Navigation 시스템이 구축되지 않은 상태에서는 현재로서 이 방법으로 고도화하는게 제일 좋을거 같습니다.
+
+### [디버깅]
+
+Unity Dots는 Systembase가 아닌 이상 대부분 BurstCompile를 사용합니다.
+class이 아닌 struct에서 ISystem을 상속받아 사용하죠.
+그렇기 때문에 UnityEngine에서 제공하는 Debug 기능을 못씁니다. 에디터에서는 일부 쓸 수 있습니다. 하지만 Job이 돌아갈때에는 사용이 안돼죠. (콘솔에서 에러 경고 뜹니다.)
+처음에는 이 오류때문에 JobSystem을 사용하는 부분에서는 디버깅이 많이 어려웠습니다.
+저는 이 문제를 해결 할 방법을 찾다가 생각해낸게 그럼 Debug용 System을 만들면 되지 않을까? 입니다.
+DebugSystem을 만들어 SystemBase를 상속받아 UnityEngine에서 제공하는 Debug를 호출할 수 있게 해두었고
+호출해야하는 Entity에 DebugComponent를 추가시켜 DebugSystem이 감지하면 그 내용을 호출하고 DebugComponent를 삭제하는 방식으로 사용했습니다.
+많이 번거롭긴 하였지만 class 타입을 못쓰는 job에서는 이 방식이 가장 효율적이라고 생각 했습니다.
+
+
+### [테스트]
+
+Dots 사용X는 빈 프로젝트에 에셋만 동일하게 하였습니다. 
 
 총 500마리의 Enemy를 소환하였으며,
 Dots 사용 X 버전에서는 NavMeshAgent에 setdestination만 적용하였고
