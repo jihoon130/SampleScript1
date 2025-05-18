@@ -46,10 +46,12 @@ Dots 사용 X 버전에서는 NavMeshAgent에 setdestination만 적용하였고
 Dots 사용 O 버전에서는 현재 이 프로젝트 모든 기능들이 돌아가게하였습니다.
 
 #### 1. Dots 사용 X
-![1](https://github.com/user-attachments/assets/d1d78393-8265-49aa-8940-4b36ae04aab5)
+![1](https://github.com/user-attachments/assets/e6ad6dad-e292-42ce-9bf4-5fe80d65196f)
+
 
 #### 2. Dots 사용 O
-![2](https://github.com/user-attachments/assets/03316b77-3868-42a6-8b27-516acf765dcf)
+![3](https://github.com/user-attachments/assets/8ade13da-b9eb-4599-a67d-e3b18d0cb406)
+
 
 ### [결론]
 
